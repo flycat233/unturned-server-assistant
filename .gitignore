@@ -1,49 +1,41 @@
-# 操作系统文件
-.DS_Store
-Thumbs.db
-
-# Python相关
-*.pyc
+# 忽略Python编译文件
 __pycache__/
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
 
-# 虚拟环境
+# 忽略虚拟环境
 venv/
+.env/
+.venv/
 env/
+
+# 忽略IDE配置文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 忽略日志文件
+*.log
+unturned_bot.log
+
+# 忽略环境变量文件
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# 不忽略示例配置文件
-!.env.example
-
-# 日志文件
-*.log
-unturned_bot.log
-
-# 数据库文件
+# 忽略数据库文件
 *.db
-*.sqlite
+*.sqlite3
 
-# IDE配置
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# 打包文件
-*.egg
-*.egg-info/
+# 忽略构建产物
 build/
 dist/
-*.whl
+*.egg-info/
 
-# 其他
-.cache/
-.temp/
+# 操作系统文件
+.DS_Store
+Thumbs.db

@@ -1,243 +1,92 @@
 # Unturned服务器助手机器人
 
-这是一个基于NoneBot2和OneBot V11适配器的Unturned服务器助手机器人插件，无需任何外部脚本，提供完整的服务器管理、监控和玩家互动功能。
+一个基于NoneBot2的Unturned游戏服务器管理助手机器人，提供玩家管理、服务器监控、签到系统等功能。
 
 ## 功能特性
 
-### 1. API消息发送功能
+- 🔧 **玩家管理**：QQ账号与SteamID绑定、个人信息查询
+- 📅 **签到系统**：每日签到领取积分，支持连续签到奖励
+- 🖥️ **服务器监控**：实时监控Unturned服务器状态，状态变化通知
+- 📡 **API服务**：提供RESTful API接口，方便与其他系统集成
+- 📢 **广播功能**：向所有监控群发送广播消息
+- 📊 **玩家统计**：记录和查询玩家游戏数据
 
-- 提供FastAPI接口，支持通过HTTP请求向指定QQ群或私聊发送消息
-- 包含API密钥认证机制，确保消息发送安全性
-- 支持文本消息和格式化内容发送
-- 提供健康检查和机器人信息查询API
+## 快速开始
 
-### 2. 服务器监控功能
+### 环境要求
 
-- 实时监控Unturned服务器状态（在线/离线）
-- 自动记录服务器状态变化历史到数据库
-- 支持服务器异常状态自动通知（如服务器崩溃、重启）
-- 提供管理员手动检查服务器状态命令
-- 实现定时轮询检查机制，可配置检查间隔
+- Python 3.8+ 
+- NoneBot2
+- MySQL数据库
+- OneBot协议机器人（如go-cqhttp）
 
-### 3. 玩家管理系统
+### 安装步骤
 
-- SteamID与QQ账号绑定功能
-- 玩家签到系统，支持每日签到获取奖励
-- 个人信息查询，包括签到次数、游戏时长等统计数据
-- 玩家数据存储与管理
+1. **克隆仓库**
 
-### 4. 权限管理系统
+```bash
+git clone https://github.com/your-username/unturned-bot.git
+cd unturned-bot
+```
 
-- 超级用户（管理员）权限验证
-- 群管理权限验证机制
-- 针对不同用户组的命令访问控制
+2. **安装依赖**
 
-### 5. 实用命令系统
-
-- 帮助命令：显示所有可用命令及使用说明
-- 绑定命令：绑定SteamID与QQ账号
-- 签到命令：每日签到获取奖励
-- 个人信息命令：查询玩家个人统计数据
-- 广播命令：管理员向所有群发送公告
-- 服务器状态命令：查询当前服务器运行状态
-
-## 环境要求
-
-- Python 3.8+
-- MySQL数据库（推荐5.7+或8.0+）
-- OneBot V11协议实现（如go-cqhttp）
-
-## 安装部署
-
-### 1. 安装依赖
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 配置环境变量
+3. **配置环境变量**
 
-机器人会自动创建默认的`.env`文件，包含所有必要的配置项。请编辑该文件，根据实际情况修改以下关键配置：
+复制`.env.example`文件并重命名为`.env`，然后根据你的环境修改配置：
 
-- `SUPERUSERS`：设置超级用户QQ号列表
-- `DATABASE_URL`：设置MySQL数据库连接字符串
-- `ONE_BOT_URL`：设置OneBot V11实现的URL
-- `API_KEY`：设置API访问密钥
-- `MONITOR_GROUPS`：设置接收监控通知的QQ群号列表
-- `SERVER_IP`和`SERVER_PORT`：设置Unturned服务器的IP地址和端口
+```bash
+cp .env.example .env
+# 使用文本编辑器编辑.env文件
+```
 
-### 3. 初始化数据库
+4. **创建数据库**
 
-首次运行时，机器人会自动创建所需的数据库表和初始数据。
-
-### 4. 启动机器人
+确保MySQL数据库已创建，然后运行机器人自动初始化表结构：
 
 ```bash
 python start_bot.py
 ```
 
-或者使用NoneBot的命令行工具：
+### 启动机器人
 
 ```bash
-nb run
+python start_bot.py
 ```
 
-## 数据库结构
+## 命令列表
 
-### 主要表结构
+### 基础命令
+- `/help` - 查看帮助信息
+- `/bind <SteamID>` - 绑定QQ与Steam账号
+- `/sign` - 每日签到领取积分
+- `/me` - 查看个人信息
+- `/server` - 查看服务器状态
 
-1. **QQBotPlayers**：存储QQ用户与SteamID绑定信息
-2. **PlayerStats**：存储玩家游戏统计数据
-3. **Uconomy**：存储玩家游戏内经济数据
-4. **ServerStatus**：记录服务器状态历史
-5. **DailySignIn**：存储玩家签到记录
-6. **GroupManagement**：存储群管理配置
-7. **CommandLogs**：记录命令执行日志
-8. **Announcements**：存储系统公告
+### 管理员命令
+- `/broadcast <消息>` - 广播消息到所有监控群
 
-## 命令使用说明
+## 配置说明
 
-### 基础命令格式
+详细配置说明请参考[配置文档](https://github.com/your-username/unturned-bot/wiki/配置说明)。
 
-所有命令以配置的命令前缀（默认为`/`）开始，后跟命令名称。
+## API文档
 
-### 可用命令列表
+启动机器人后，可以访问 `http://<API_HOST>:<API_PORT>/docs` 查看Swagger API文档。
 
-#### 1. 帮助命令
-```
-/help
-```
-显示所有可用命令及使用说明。
+## 开发指南
 
-#### 2. 绑定命令
-```
-/bind <steamid>
-```
-绑定QQ账号与SteamID，需要超级用户或管理员权限。
-
-#### 3. 签到命令
-```
-/sign
-```
-每日签到获取奖励，可获得基础奖励和连续签到奖励。
-
-#### 4. 个人信息命令
-```
-/me
-```
-查询玩家个人统计数据，包括签到次数、游戏时长等。
-
-#### 5. 服务器状态命令
-```
-/server
-```
-查询当前Unturned服务器运行状态。
-
-#### 6. 广播命令
-```
-/broadcast <消息内容>
-```
-向所有监控群发送公告，需要超级用户权限。
-
-## API接口文档
-
-### 基础URL
-
-默认API访问地址：`http://127.0.0.1:8000`
-
-### 认证方式
-
-所有API请求需要在请求头中包含API密钥：
-```
-X-API-Key: your-api-key-here
-```
-
-### 可用接口
-
-#### 1. 健康检查
-```
-GET /api/health
-```
-检查机器人服务是否正常运行。
-
-#### 2. 发送私聊消息
-```
-POST /api/send_private_msg
-```
-参数：
-- `user_id`：接收消息的QQ号
-- `message`：消息内容
-
-#### 3. 发送群消息
-```
-POST /api/send_group_msg
-```
-参数：
-- `group_id`：接收消息的QQ群号
-- `message`：消息内容
-
-#### 4. 获取机器人信息
-```
-GET /api/info
-```
-获取机器人版本、运行状态等信息。
-
-## 系统配置详解
-
-### 核心配置项
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `VERSION` | 机器人版本 | `1.0.0` |
-| `SUPERUSERS` | 超级用户QQ号列表 | `["123456789"]` |
-| `NICKNAME` | 机器人昵称 | `["Unturned助手"]` |
-| `COMMAND_START` | 命令前缀 | `["/"]` |
-| `DATABASE_URL` | 数据库连接字符串 | `mysql+pymysql://root:password@localhost:3306/unturned_bot` |
-| `API_KEY` | API访问密钥 | `your-api-key-here` |
-| `MONITOR_INTERVAL` | 服务器监控间隔（秒） | `60` |
-
-### 通知配置
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `NOTIFY_ON_STARTUP` | 启动通知开关 | `True` |
-| `NOTIFY_ON_SHUTDOWN` | 关闭通知开关 | `True` |
-| `NOTIFY_STATUS_CHANGE` | 状态变化通知开关 | `True` |
-| `MONITOR_GROUPS` | 监控群列表 | `["123456789"]` |
-
-### 签到奖励配置
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| `SIGN_IN_REWARD_BASE` | 基础签到奖励 | `100` |
-| `SIGN_IN_REWARD_7DAYS` | 连续7天签到奖励 | `1000` |
-| `SIGN_IN_REWARD_30DAYS` | 连续30天签到奖励 | `5000` |
-
-## 常见问题解决
-
-### 1. 数据库连接失败
-
-- 检查MySQL服务是否正常运行
-- 确认数据库连接字符串格式正确
-- 确保数据库用户有足够的权限
-
-### 2. API访问失败
-
-- 检查API密钥是否正确
-- 确认API服务已启用
-- 检查防火墙设置是否阻止了连接
-
-### 3. 服务器监控失败
-
-- 确认Unturned服务器IP和端口配置正确
-- 检查服务器防火墙设置
-- 确认服务器已启动
-
-## 注意事项
-
-- 请妥善保管API密钥和数据库密码
-- 定期备份数据库，防止数据丢失
-- 对于生产环境，建议修改默认配置以增强安全性
-- 修改配置后需要重启机器人才能生效
+如果你想参与开发，请参考[开发文档](https://github.com/your-username/unturned-bot/wiki/开发指南)。
 
 ## 许可证
-MIT License
+
+本项目采用MIT许可证 - 详见[LICENSE](LICENSE)文件
+
+## 致谢
+
+- [NoneBot2](https://github.com/nonebot/nonebot2) - 机器人框架
+- [go-cqhttp](https://github.com/Mrs4s/go-cqhttp) - OneBot协议实现

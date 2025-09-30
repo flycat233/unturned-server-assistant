@@ -1,16 +1,16 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, Text, Float
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, backref
-from .settings import get_config
-import datetime
-import logging
+from sqlalchemy.orm import sessionmaker
+from settings import get_config
 
 # 获取配置
 config = get_config()
 
 # 创建数据库引擎
 engine = create_engine(
-    config.database_url, 
+    config.DATABASE_URL,
+    pool_size=config.DB_POOL_SIZE,
+    max_overflow=10,
     pool_pre_ping=True
 )
 
@@ -28,124 +28,52 @@ def get_db():
     finally:
         db.close()
 
-# 初始化数据库
+# 初始化数据库（创建表和初始数据）
 def init_db():
-    try:
-        # 导入所有模型以确保它们被Base识别
-        from .models import (
-            QQBotPlayers, PlayerStats, Uconomy, 
-            ServerStatus, DailySignIn, GroupManagement, 
-            CommandLogs, Announcements
-        )
+    # 导入所有模型以确保它们被注册
+    from models import (
+        QQBotPlayers, PlayerStats, Uconomy, ServerStatus,
+        DailySignIn, GroupManagement, CommandLogs, Announcements
+    )
+    
+    # 创建所有表
+    Base.metadata.create_all(bind=engine)
+    
+    # 添加初始数据
+    db = next(get_db())
+    
+    # 检查是否已有超级用户
+    for superuser_id in config.SUPERUSERS:
+        existing_user = db.query(QQBotPlayers).filter(
+            QQBotPlayers.qq_id == superuser_id
+        ).first()
         
-        # 创建所有表
-        Base.metadata.create_all(bind=engine)
+        if not existing_user:
+            # 创建超级用户记录
+            superuser = QQBotPlayers(
+                qq_id=superuser_id,
+                steam_id=f"superuser_{superuser_id}",
+                nickname="超级用户",
+                points=99999
+            )
+            db.add(superuser)
+    
+    # 添加监控群配置
+    for group_id in config.MONITOR_GROUPS:
+        existing_group = db.query(GroupManagement).filter(
+            GroupManagement.group_id == group_id
+        ).first()
         
-        logging.info("数据库初始化成功，所有表已创建")
-        
-        # 添加初始数据
-        add_initial_data()
-    except Exception as e:
-        logging.error(f"数据库初始化失败: {str(e)}")
-        raise
-
-# 添加初始数据
-def add_initial_data():
-    db = next(get_db())
-    try:
-        # 检查是否已有超级用户
-        from .models import QQBotPlayers
-        if db.query(QQBotPlayers).count() == 0:
-            # 如果有超级用户ID配置，添加超级用户
-            if config.SUPERUSERS and len(config.SUPERUSERS) > 0:
-                for superuser_id in config.SUPERUSERS:
-                    superuser = QQBotPlayers(
-                        qq_id=superuser_id,
-                        nickname="超级管理员",
-                        is_superuser=True
-                    )
-                    db.add(superuser)
-                db.commit()
-                logging.info(f"已添加超级用户: {', '.join(config.SUPERUSERS)}")
-        
-        # 检查是否已有群管理配置
-        from .models import GroupManagement
-        if db.query(GroupManagement).count() == 0:
-            # 如果有监控群配置，添加群管理配置
-            if hasattr(config, 'MONITOR_GROUPS') and config.MONITOR_GROUPS:
-                for group_id in config.MONITOR_GROUPS:
-                    group_config = GroupManagement(
-                        group_id=group_id,
-                        enable_monitor=True,
-                        enable_commands=True
-                    )
-                    db.add(group_config)
-                db.commit()
-                logging.info(f"已添加监控群配置: {', '.join(map(str, config.MONITOR_GROUPS))}")
-    except Exception as e:
-        db.rollback()
-        logging.error(f"添加初始数据失败: {str(e)}")
-    finally:
-        db.close()
-
-# 数据库工具函数
-def get_player_by_qq(qq_id):
-    """根据QQ号获取玩家信息"""
-    db = next(get_db())
-    try:
-        from .models import QQBotPlayers
-        return db.query(QQBotPlayers).filter(QQBotPlayers.qq_id == qq_id).first()
-    finally:
-        db.close()
-
-def log_command(user_id, command, args, success=True, error_msg=None):
-    """记录命令执行日志"""
-    db = next(get_db())
-    try:
-        from .models import CommandLogs
-        log = CommandLogs(
-            user_id=user_id,
-            command=command,
-            arguments=args,
-            success=success,
-            error_message=error_msg,
-            timestamp=datetime.datetime.utcnow()
-        )
-        db.add(log)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logging.error(f"记录命令日志失败: {str(e)}")
-    finally:
-        db.close()
-
-def save_server_status(is_online, players=0, max_players=24, map_name="Unknown", ip="", port=27015):
-    """保存服务器状态到数据库"""
-    db = next(get_db())
-    try:
-        from .models import ServerStatus
-        status = ServerStatus(
-            is_online=is_online,
-            players=players,
-            max_players=max_players,
-            map_name=map_name,
-            server_ip=ip,
-            server_port=port
-        )
-        db.add(status)
-        db.commit()
-        return status
-    except Exception as e:
-        db.rollback()
-        logging.error(f"保存服务器状态失败: {str(e)}")
-    finally:
-        db.close()
-
-def get_latest_server_status():
-    """获取最新的服务器状态"""
-    db = next(get_db())
-    try:
-        from .models import ServerStatus
-        return db.query(ServerStatus).order_by(ServerStatus.timestamp.desc()).first()
-    finally:
-        db.close()
+        if not existing_group:
+            # 创建群配置记录
+            group_config = GroupManagement(
+                group_id=group_id,
+                enabled=True,
+                admin_only=False,
+                welcome_message="欢迎加入Unturned服务器交流群！"
+            )
+            db.add(group_config)
+    
+    # 提交事务
+    db.commit()
+    db.close()

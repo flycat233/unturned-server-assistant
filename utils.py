@@ -1,198 +1,165 @@
-import os
-import sys
-import time
 import logging
-from typing import Any, Dict, List, Optional, Union
+import datetime
+import requests
+from settings import get_config
 
-# 设置日志配置
-def setup_logger(name: str, log_file: Optional[str] = None, level: int = logging.INFO) -> logging.Logger:
-    """
-    设置一个自定义的日志记录器
+# 配置日志
+def setup_logger():
+    config = get_config()
+    logger = logging.getLogger("unturned_bot")
+    logger.setLevel(getattr(logging, config.LOG_LEVEL))
     
-    参数:
-        name: 日志记录器名称
-        log_file: 日志文件路径，如果为None则只输出到控制台
-        level: 日志级别
-    
-    返回:
-        配置好的日志记录器
-    """
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.propagate = False  # 防止日志重复输出
-    
-    # 清除已有的处理器
+    # 清空已有的处理器
     if logger.handlers:
         logger.handlers.clear()
     
-    # 添加控制台处理器
+    # 创建控制台处理器
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    console_handler.setLevel(getattr(logging, config.LOG_LEVEL))
     
-    # 添加文件处理器（如果指定了日志文件）
-    if log_file:
-        # 确保日志目录存在
-        log_dir = os.path.dirname(log_file)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    # 创建文件处理器（如果启用）
+    if config.LOG_TO_FILE:
+        file_handler = logging.FileHandler(config.LOG_FILE, encoding="utf-8")
+        file_handler.setLevel(getattr(logging, config.LOG_LEVEL))
+    
+    # 设置日志格式
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    console_handler.setFormatter(formatter)
+    if config.LOG_TO_FILE:
         file_handler.setFormatter(formatter)
+    
+    # 添加处理器
+    logger.addHandler(console_handler)
+    if config.LOG_TO_FILE:
         logger.addHandler(file_handler)
     
     return logger
 
-# 检查是否是超级用户
-def is_superuser(user_id: Union[str, int]) -> bool:
-    """
-    检查给定的用户ID是否是超级用户
-    
-    参数:
-        user_id: 用户ID（字符串或整数）
-    
-    返回:
-        是否是超级用户
-    """
-    from .settings import get_config
+# 获取日志记录器
+logger = setup_logger()
+
+# 发送API请求
+def send_api_request(url, method="GET", data=None, headers=None):
     config = get_config()
-    return str(user_id) in config.superusers
+    retry_count = 0
+    
+    # 如果没有提供headers，使用默认headers
+    if headers is None:
+        headers = {}
+        if config.API_KEY:
+            headers["Authorization"] = f"Bearer {config.API_KEY}"
+    
+    while retry_count <= config.MAX_RETRY_TIMES:
+        try:
+            if method.upper() == "GET":
+                response = requests.get(url, params=data, headers=headers, timeout=config.SERVER_TIMEOUT)
+            elif method.upper() == "POST":
+                response = requests.post(url, json=data, headers=headers, timeout=config.SERVER_TIMEOUT)
+            elif method.upper() == "PUT":
+                response = requests.put(url, json=data, headers=headers, timeout=config.SERVER_TIMEOUT)
+            elif method.upper() == "DELETE":
+                response = requests.delete(url, headers=headers, timeout=config.SERVER_TIMEOUT)
+            else:
+                logger.error(f"不支持的请求方法: {method}")
+                return None
+            
+            response.raise_for_status()  # 抛出HTTP错误
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            retry_count += 1
+            logger.error(f"API请求失败 (尝试 {retry_count}/{config.MAX_RETRY_TIMES}): {str(e)}")
+            
+            if retry_count <= config.MAX_RETRY_TIMES:
+                logger.info(f"{config.RETRY_INTERVAL}秒后重试...")
+                import time
+                time.sleep(config.RETRY_INTERVAL)
+            else:
+                logger.error("达到最大重试次数，请求失败")
+                return None
 
 # 格式化时间
-def format_time(timestamp: float = None, format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
-    """
-    将时间戳格式化为字符串
-    
-    参数:
-        timestamp: 时间戳，如果为None则使用当前时间
-        format_str: 时间格式字符串
-    
-    返回:
-        格式化后的时间字符串
-    """
-    if timestamp is None:
-        timestamp = time.time()
-    return time.strftime(format_str, time.localtime(timestamp))
+def format_time(dt):
+    if isinstance(dt, datetime.datetime):
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    return str(dt)
 
-# 安全地转换为整数
-def safe_int(value: Any, default: int = 0) -> int:
-    """
-    安全地将值转换为整数
-    
-    参数:
-        value: 要转换的值
-        default: 转换失败时的默认值
-    
-    返回:
-        转换后的整数或默认值
-    """
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
+# 检查是否为超级用户
+def is_superuser(user_id):
+    config = get_config()
+    return str(user_id) in [str(uid) for uid in config.SUPERUSERS]
 
-# 安全地转换为字符串
-def safe_str(value: Any, default: str = "") -> str:
-    """
-    安全地将值转换为字符串
-    
-    参数:
-        value: 要转换的值
-        default: 转换失败时的默认值
-    
-    返回:
-        转换后的字符串或默认值
-    """
-    try:
-        return str(value)
-    except (ValueError, TypeError):
-        return default
+# 获取当前时间戳
+def get_current_timestamp():
+    return datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
-# 检查文件是否存在
-def file_exists(file_path: str) -> bool:
-    """
-    检查文件是否存在
+# 计算连续签到奖励
+def calculate_sign_in_reward(consecutive_days):
+    config = get_config()
+    reward = config.SIGN_IN_REWARD_BASE
     
-    参数:
-        file_path: 文件路径
+    # 添加连续签到额外奖励
+    if consecutive_days % 30 == 0:
+        reward += config.SIGN_IN_REWARD_30DAYS
+    elif consecutive_days % 7 == 0:
+        reward += config.SIGN_IN_REWARD_7DAYS
     
-    返回:
-        文件是否存在
-    """
-    return os.path.isfile(file_path)
+    return reward
 
-# 确保目录存在
-def ensure_dir(dir_path: str) -> bool:
-    """
-    确保目录存在，如果不存在则创建
+# 发送OneBot消息
+def send_onebot_message(message_type, user_id=None, group_id=None, message=None):
+    config = get_config()
+    url = f"{config.ONE_BOT_URL}/send_message"
     
-    参数:
-        dir_path: 目录路径
+    # 构建消息参数
+    params = {
+        "message_type": message_type,
+        "message": message
+    }
     
-    返回:
-        是否成功创建或目录已存在
-    """
-    try:
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path, exist_ok=True)
+    if message_type == "private" and user_id:
+        params["user_id"] = user_id
+    elif message_type == "group" and group_id:
+        params["group_id"] = group_id
+    else:
+        logger.error("消息类型或目标ID不正确")
+        return False
+    
+    # 添加访问令牌（如果有）
+    headers = {}
+    if config.ONE_BOT_ACCESS_TOKEN:
+        headers["Authorization"] = f"Bearer {config.ONE_BOT_ACCESS_TOKEN}"
+    
+    # 发送请求
+    response = send_api_request(url, method="POST", data=params, headers=headers)
+    
+    if response and response.get("status") == "ok":
+        logger.info(f"成功发送{message_type}消息到{user_id or group_id}")
         return True
-    except Exception:
+    else:
+        logger.error(f"发送消息失败: {response}")
         return False
 
-# 从文件读取文本
-def read_file(file_path: str, encoding: str = 'utf-8') -> Optional[str]:
-    """
-    从文件中读取文本
-    
-    参数:
-        file_path: 文件路径
-        encoding: 文件编码
-    
-    返回:
-        文件内容，如果文件不存在或读取失败则返回None
-    """
-    if not file_exists(file_path):
-        return None
+# 记录命令日志
+def log_command(user_id, group_id, command, arguments, success, result):
+    from database import get_db
+    from models import CommandLogs
+    import datetime
     
     try:
-        with open(file_path, 'r', encoding=encoding) as f:
-            return f.read()
-    except Exception:
-        return None
-
-# 写入文本到文件
-def write_file(file_path: str, content: str, encoding: str = 'utf-8') -> bool:
-    """
-    将文本写入文件
-    
-    参数:
-        file_path: 文件路径
-        content: 要写入的内容
-        encoding: 文件编码
-    
-    返回:
-        是否写入成功
-    """
-    try:
-        # 确保目录存在
-        dir_path = os.path.dirname(file_path)
-        if dir_path and not os.path.exists(dir_path):
-            os.makedirs(dir_path, exist_ok=True)
-        
-        with open(file_path, 'w', encoding=encoding) as f:
-            f.write(content)
-        return True
-    except Exception:
-        return False
-
-# 获取当前工作目录
-def get_working_dir() -> str:
-    """
-    获取当前工作目录
-    
-    返回:
-        当前工作目录的绝对路径
-    """
-    return os.path.dirname(os.path.abspath(sys.argv[0])) if sys.argv else os.getcwd()
+        db = next(get_db())
+        log_entry = CommandLogs(
+            user_id=str(user_id),
+            group_id=str(group_id) if group_id else None,
+            command=command,
+            arguments=arguments,
+            success=success,
+            result=result[:255] if result else None  # 截断过长的结果
+        )
+        db.add(log_entry)
+        db.commit()
+    except Exception as e:
+        logger.error(f"记录命令日志失败: {str(e)}")
+    finally:
+        db.close()
