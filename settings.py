@@ -24,8 +24,8 @@ class GlobalConfig(BaseSettings):
     api_port: int = Field(default=8080, alias="API_PORT")
     api_debug: bool = Field(default=False, alias="API_DEBUG")
     
-    # 数据库配置
-    database_url: str = Field(default="sqlite:///./unturned_bot.db", alias="DATABASE_URL")
+    # 数据库配置 - 默认使用MySQL
+    database_url: str = Field(default="mysql+pymysql://root:password@localhost:3306/unturned_bot", alias="DATABASE_URL")
     
     # 监控配置
     monitor_interval: int = Field(default=60, alias="MONITOR_INTERVAL")

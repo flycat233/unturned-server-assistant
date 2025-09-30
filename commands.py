@@ -8,8 +8,8 @@ from .settings import get_config
 # 获取配置
 config = get_config()
 
-# 示例命令：echo
 # 重复用户发送的内容
+# 用于测试机器人是否正常响应，会原样返回用户发送的消息
 echo = on_command("echo", priority=10, block=True)
 
 @echo.handle()
@@ -23,8 +23,8 @@ async def got_echo_msg(event: Event, state: T_State):
     echo_msg = state["echo_msg"]
     await echo.finish(f"你说的是：{echo_msg}")
 
-# 示例命令：server
-# 查询服务器状态
+# 查询Unturned服务器状态
+# 显示服务器的当前运行状态、在线人数和地图信息
 server_status = on_command("server", aliases={"服务器状态"}, priority=10, block=True)
 
 @server_status.handle()
@@ -32,8 +32,8 @@ async def handle_server_status():
     # 这里可以添加实际获取服务器状态的逻辑
     await server_status.finish(Message("服务器当前状态：运行中\n在线人数：0/24\n当前地图：Unknown"))
 
-# 示例命令：restart（仅超级用户可用）
 # 重启机器人（仅超级用户可用）
+# 用于重新启动机器人，只有超级用户可以执行此命令
 restart_bot = on_command("restart", aliases={"重启"}, permission=SUPERUSER, priority=5, block=True)
 
 @restart_bot.handle()
