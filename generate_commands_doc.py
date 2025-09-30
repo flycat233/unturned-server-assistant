@@ -1,226 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-GitHub上传准备脚本
-
-此脚本用于在上传代码到GitHub之前，自动替换配置文件中的隐私数据为虚拟数据。
-执行此脚本后，所有敏感信息将被替换为安全的示例数据。
-
-使用方法：
-python prepare_for_github.py
+生成命令文档脚本
 """
 import os
-import re
-import json
-import shutil
 from pathlib import Path
-from typing import Dict, List, Any
 
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.resolve()
 
-# 需要处理的配置文件
-CONFIG_FILES = [
-    PROJECT_ROOT / ".env.example",  # 示例配置文件，确保不包含真实数据
-    PROJECT_ROOT / "settings.py",    # 设置文件，检查默认值
-]
-
-# 隐私数据替换规则
-# 键为配置项名称，值为替换后的虚拟数据
-PRIVACY_REPLACEMENTS = {
-    # 超级用户配置
-    "SUPERUSERS": '["1000000000"]',
-    'superusers': '["1000000000"]',
-    "SUPERUSERS=[\"1049217020\"]": "SUPERUSERS=[\"1000000000\"]",
-    # 服务器配置
-    "SERVER_IP": "127.0.0.1",
-    "server_ip": "127.0.0.1",
-    # 数据库配置
-    "DATABASE_URL": "mysql+pymysql://root:password@localhost:3306/unturned_bot",
-    "database_url": "mysql+pymysql://root:password@localhost:3306/unturned_bot",
-    # API配置
-    "API_KEY": "your-api-key-here",
-    "api_key": "your-api-key-here",
-    # 监控群配置
-    "MONITOR_GROUPS": '["123456789"]',
-    "monitor_groups": '["123456789"]',
-}
-
-# 需要确保安全的文件内容检查正则表达式
-SAFETY_CHECKS = [
-    # 检查是否包含真实的QQ号
-    (r'SUPERUSERS=\["[0-9]{10}\"\]', r'SUPERUSERS=\["1000000000"\]'),
-    # 检查是否包含非本地IP地址
-    (r'SERVER_IP=([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})', r'SERVER_IP=127.0.0.1'),
-    # 检查是否包含真实的数据库连接信息
-    (r'DATABASE_URL=mysql\+pymysql:\/\/[^:@]+:[^@]+@[^:]+:\d+\/[^\\s]+', 
-     r'DATABASE_URL=mysql+pymysql://root:password@localhost:3306/unturned_bot'),
-    # 检查是否包含真实的API密钥
-    (r'API_KEY=([a-zA-Z0-9]{16,})', r'API_KEY=your-api-key-here'),
-    # 检查是否包含真实的监控群号
-    (r'MONITOR_GROUPS=\["[0-9]{9}\"\]', r'MONITOR_GROUPS=\["123456789"\]'),
-]
-
-def process_file(file_path: Path) -> bool:
-    """
-    处理指定的配置文件，替换隐私数据并创建备份
-    
-    Args:
-        file_path: 配置文件路径
-    
-    Returns:
-        bool: 处理是否成功
-    """
-    try:
-        # 如果文件不存在，跳过处理
-        if not file_path.exists():
-            print(f"❌ 文件不存在: {file_path}")
-            return False
-        
-        # 创建备份文件
-        backup_path = file_path.with_suffix(f"{file_path.suffix}.backup")
-        shutil.copy2(file_path, backup_path)
-        print(f"已创建备份: {backup_path}")
-        
-        # 读取文件内容
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # 应用替换规则
-        modified = False
-        for key, value in PRIVACY_REPLACEMENTS.items():
-            if key in content:
-                content = content.replace(key, value)
-                modified = True
-                print(f"  已替换配置项: {key}")
-        
-        # 应用安全检查正则表达式
-        for pattern, replacement in SAFETY_CHECKS:
-            if re.search(pattern, content):
-                content = re.sub(pattern, replacement, content)
-                modified = True
-                print(f"  已修复安全问题: {pattern}")
-        
-        # 写入修改后的内容
-        if modified:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            print(f"✅ 配置文件已更新: {file_path}")
-        else:
-            print(f"✅ 配置文件无需更新: {file_path}")
-        
-        return True
-    except Exception as e:
-        print(f"❌ 处理文件失败: {file_path}, 错误: {str(e)}")
-        return False
-
-def check_gitignore() -> bool:
-    """
-    检查.gitignore文件是否包含必要的忽略规则
-    
-    Returns:
-        bool: 检查是否通过
-    """
-    try:
-        gitignore_path = PROJECT_ROOT / ".gitignore"
-        
-        # 如果.gitignore文件不存在，创建一个默认的
-        if not gitignore_path.exists():
-            print(f"⚠️ .gitignore文件不存在，正在创建默认文件")
-            default_gitignore = """# 操作系统文件
-.DS_Store
-Thumbs.db
-
-# Python文件
-*.pyc
-__pycache__/
-*.pyd
-*.pyo
-
-# 虚拟环境
-venv/
-env/
-*.venv/
-
-# 环境文件
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-# 但保留示例文件
-!.env.example
-
-# 日志文件
-*.log
-logs/
-
-# 数据库文件
-*.db
-*.sqlite
-*.sqlite3
-
-# IDE配置
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# 打包文件
-*.egg
-*.egg-info/
-build/
-dist/
-*.whl
-
-# 缓存文件
-.cache/
-.temp/
-"""
-            with open(gitignore_path, 'w', encoding='utf-8') as f:
-                f.write(default_gitignore)
-            print(f"✅ 已创建默认.gitignore文件")
-        
-        # 检查.gitignore文件内容
-        with open(gitignore_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # 必须包含的忽略规则
-        required_rules = [
-            ".env",                  # 环境文件
-            "__pycache__/",          # Python缓存
-            "*.pyc",                 # 编译后的Python文件
-            "venv/", "env/",         # 虚拟环境
-            "*.log",                 # 日志文件
-            "*.db", "*.sqlite",      # 数据库文件
-        ]
-        
-        all_present = True
-        for rule in required_rules:
-            if rule not in content:
-                print(f"⚠️ .gitignore文件缺少必要规则: {rule}")
-                all_present = False
-        
-        if all_present:
-            print(f"✅ .gitignore文件检查通过")
-        else:
-            print(f"❌ .gitignore文件检查失败，缺少必要的忽略规则")
-        
-        return all_present
-    except Exception as e:
-        print(f"❌ 检查.gitignore文件失败: {str(e)}")
-        return False
+print("=== 生成命令文档 ===")
 
 def generate_command_documentation() -> bool:
-    """
-    生成插件指令文档
-    
-    Returns:
-        bool: 生成是否成功
-    """
+    """生成插件指令文档"""
     try:
         # 定义所有支持的指令
         commands = [
@@ -395,46 +187,19 @@ def generate_command_documentation() -> bool:
                 elif cmd['name'] == 'get_permission':
                     f.write("- `/get_permission 123456789` - 查看用户ID为123456789的权限等级\n")
                 f.write("\n")
+            
+            # 添加全局注意事项
+            f.write("\n## 全局注意事项\n")
+            f.write("- 所有指令都需要以配置的命令前缀开头（默认为 `/`、`!`、`！`）\n")
+            f.write("- 部分指令需要特定权限才能使用（如`restart`指令仅限超级用户使用）\n")
+            f.write("- 如果机器人没有响应，请检查命令格式是否正确，以及机器人是否在线\n")
+            f.write("- 命令的具体功能可能会根据插件版本更新而有所变化\n")
         
-        # 添加全局注意事项
-        f.write("\n## 全局注意事项\n")
-        f.write("- 所有指令都需要以配置的命令前缀开头（默认为 `/`、`!`、`！`）\n")
-        f.write("- 部分指令需要特定权限才能使用（如`restart`指令仅限超级用户使用）\n")
-        f.write("- 如果机器人没有响应，请检查命令格式是否正确，以及机器人是否在线\n")
-        f.write("- 命令的具体功能可能会根据插件版本更新而有所变化\n")
-        
-        print(f"已成功生成指令文档: {doc_path}")
+        print(f"✅ 已成功生成指令文档: {doc_path}")
         return True
     except Exception as e:
-        print(f"生成指令文档失败: {str(e)}")
+        print(f"❌ 生成指令文档失败: {str(e)}")
         return False
 
-def main() -> None:
-    """主函数"""
-    print("=== GitHub上传准备脚本 ===")
-    print(f"正在处理项目: {PROJECT_ROOT}")
-    
-    # 处理所有配置文件
-    all_success = True
-    for file_path in CONFIG_FILES:
-        success = process_file(file_path)
-        all_success = all_success and success
-    
-    # 检查.gitignore文件
-    gitignore_ok = check_gitignore()
-    all_success = all_success and gitignore_ok
-    
-    # 生成指令文档
-    doc_success = generate_command_documentation()
-    all_success = all_success and doc_success
-    
-    # 生成总结
-    print("\n=== 总结 ===")
-    if all_success:
-        print("✅ 所有操作已成功完成！")
-        print("\n接下来您可以执行以下命令上传代码到GitHub：")
-        print("  git add .")
-        print("  git commit -m \"准备上传GitHub，替换隐私数据\"")
-        print("  git push origin main")
-    else:
-        print("⚠️ 部分操作执行失败，请查看上面的详细信息。")
+if __name__ == "__main__":
+    generate_command_documentation()

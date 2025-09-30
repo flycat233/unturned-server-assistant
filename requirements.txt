@@ -1,6 +1,21 @@
+# Unturned服务器助手机器人依赖包
+
+# 核心框架
 nonebot2>=2.0.0
 nonebot-adapter-onebot>=2.0.0
+
+# API服务
 fastapi>=0.95.0
 uvicorn>=0.22.0
+
+# 数据库
 sqlalchemy>=2.0.0
+pymysql>=1.1.0  # MySQL连接驱动
+
+# 配置管理
 python-dotenv>=1.0.0
+
+# 工具包
+requests>=2.31.0  # HTTP请求
+datetime>=4.3  # 日期时间处理
+pydantic>=2.0.0  # 数据验证
