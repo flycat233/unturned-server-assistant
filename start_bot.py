@@ -44,8 +44,10 @@ try:
     import nonebot
     from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
     
-    # 初始化NoneBot
-    nonebot.init(config=config)
+    # 初始化NoneBot - 特别处理superusers字段，确保它是NoneBot期望的set类型
+    config_dict = config.dict()
+    config_dict['superusers'] = set(config_dict['superusers'])
+    nonebot.init(config=config_dict)
     
     # 注册适配器
     driver = nonebot.get_driver()
