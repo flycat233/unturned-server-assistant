@@ -9,8 +9,8 @@ current_dir = Path(__file__).parent.resolve()
 
 # 全局配置类
 class GlobalConfig(BaseSettings):
-    # 超级用户配置
-    superusers: Set[str] = Field(default_factory=set, alias="SUPERUSERS")
+    # 超级用户配置 - 使用List类型更灵活，避免Set类型转换问题
+    superusers: List[str] = Field(default_factory=list, alias="SUPERUSERS")
     
     # 机器人基本配置
     nickname: list = Field(default_factory=lambda: ["Unturned助手"], alias="NICKNAME")
@@ -52,6 +52,7 @@ class GlobalConfig(BaseSettings):
         # 自定义字段验证和转换
         @classmethod
         def parse_env_var(cls, field_name, raw_val):
+            import json
             # 特别处理SUPERUSERS字段，确保它始终是字符串并正确转换为集合
             if field_name == "superusers":
                 # 确保值是字符串格式
@@ -61,8 +62,27 @@ class GlobalConfig(BaseSettings):
                     raw_str = raw_str[1:-1]
                 elif raw_str.startswith("'") and raw_str.endswith("'"):
                     raw_str = raw_str[1:-1]
-                # 分割并转换为字符串集合
-                return set(user_id.strip() for user_id in raw_str.split(',') if user_id.strip())
+                # 分割并转换为字符串列表
+                return [user_id.strip() for user_id in raw_str.split(',') if user_id.strip()]
+            
+            # 处理列表类型的字段，尝试JSON解析
+            elif field_name in ["nickname", "command_start", "command_sep"]:
+                try:
+                    # 如果已经是列表，直接返回
+                    if isinstance(raw_val, list):
+                        return raw_val
+                    # 尝试JSON解析
+                    if isinstance(raw_val, str):
+                        return json.loads(raw_val)
+                except (json.JSONDecodeError, TypeError):
+                    # 解析失败时返回默认值
+                    if field_name == "nickname":
+                        return ["Unturned助手"]
+                    elif field_name == "command_start":
+                        return ["/", "!", "！"]
+                    elif field_name == "command_sep":
+                        return ["|"]
+            
             return raw_val
 
 # 加载环境变量并特别处理SUPERUSERS配置
