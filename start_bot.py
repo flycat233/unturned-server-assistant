@@ -33,6 +33,9 @@ try:
     logger = logging.getLogger("unturned_bot")
     logger.info(f"成功加载配置，超级用户: {config.superusers}, 类型: {type(config.superusers)}")
     
+    # 创建用于NoneBot初始化的配置副本，确保不修改原始配置
+    nonebot_config = config.dict().copy()
+    
 except Exception as e:
     print(f"加载配置失败: {e}")
     import traceback
@@ -44,14 +47,21 @@ try:
     import nonebot
     from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
     
-    # 初始化NoneBot - 特别处理superusers字段，确保它是NoneBot期望的set类型
-    config_dict = config.dict()
-    config_dict['superusers'] = set(config_dict['superusers'])
-    nonebot.init(config=config_dict)
+    # 初始化NoneBot - 全新解决方案：不使用set类型，而是通过NoneBot的自定义配置方式
+    # 移除原来的superusers配置，使用特殊方式处理
+    if 'superusers' in nonebot_config:
+        del nonebot_config['superusers']
+    
+    # 初始化NoneBot，但不包含superusers配置
+    nonebot.init(config=nonebot_config)
     
     # 注册适配器
     driver = nonebot.get_driver()
     driver.register_adapter(OneBotV11Adapter)
+    
+    # 单独设置superusers - 通过driver设置，这样可以避免类型验证问题
+    # 将superusers转换为字符串列表，这样NoneBot内部会正确处理
+    driver.config.superusers = [str(user_id) for user_id in config.superusers]
     
     # 加载当前目录下的所有插件
     nonebot.load_plugins(str(current_dir))
