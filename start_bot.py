@@ -17,40 +17,26 @@ if not (current_dir / "__init__.py").is_file():
 # 添加当前目录到Python路径
 sys.path.insert(0, str(current_dir))
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("unturned_bot.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("unturned_bot")
-
-# 加载环境变量
+# 首先导入统一配置模块
 try:
-    from dotenv import load_dotenv
-    dotenv_path = current_dir / ".env"
-    load_dotenv(dotenv_path=dotenv_path)
-    logger.info(f"成功加载.env文件: {dotenv_path}")
-except ImportError:
-    logger.warning("未找到python-dotenv模块，跳过.env文件加载")
+    from settings import get_config, check_dependencies
+    
+    # 检查依赖
+    missing_packages = check_dependencies()
+    if missing_packages:
+        print(f"错误：缺少必要的依赖包: {', '.join(missing_packages)}")
+        print("请运行: pip install -r requirements.txt")
+        sys.exit(1)
+    
+    # 获取配置
+    config = get_config()
+    logger = logging.getLogger("unturned_bot")
+    logger.info(f"成功加载配置，超级用户: {config.superusers}, 类型: {type(config.superusers)}")
+    
 except Exception as e:
-    logger.error(f"加载.env文件失败: {e}")
-
-# 检查依赖
-required_packages = ["nonebot2", "nonebot-adapter-onebot", "sqlalchemy", "fastapi", "uvicorn"]
-missing_packages = []
-for package in required_packages:
-    try:
-        __import__(package)
-    except ImportError:
-        missing_packages.append(package)
-
-if missing_packages:
-    logger.error(f"缺少必要的依赖包: {', '.join(missing_packages)}")
-    logger.error("请运行: pip install -r requirements.txt")
+    print(f"加载配置失败: {e}")
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
 
 # 启动NoneBot2
@@ -59,7 +45,7 @@ try:
     from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
     
     # 初始化NoneBot
-    nonebot.init()
+    nonebot.init(config=config)
     
     # 注册适配器
     driver = nonebot.get_driver()
@@ -68,22 +54,21 @@ try:
     # 加载当前目录下的所有插件
     nonebot.load_plugins(str(current_dir))
     
-    # 启动API服务
+    # 启动API服务（如果启用）
     try:
-        import uvicorn
-        from api import app as api_app
-        from config import config
-        
-        if config.API_ENABLED:
-            logger.info(f"启动API服务: {config.API_HOST}:{config.API_PORT}")
+        if config.api_enabled:
+            logger.info(f"启动API服务: {config.api_host}:{config.api_port}")
             # 在单独的线程中启动API服务
             import threading
+            import uvicorn
+            from api import app as api_app
+            
             api_thread = threading.Thread(
                 target=lambda: uvicorn.run(
                     api_app, 
-                    host=config.API_HOST, 
-                    port=config.API_PORT, 
-                    log_level="info" if config.API_DEBUG else "warning"
+                    host=config.api_host, 
+                    port=config.api_port, 
+                    log_level="info" if config.api_debug else "warning"
                 ),
                 daemon=True
             )

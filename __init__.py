@@ -1,27 +1,16 @@
 """
-Unturned服务器助手机器人插件
-提供API消息发送、服务器监控、玩家管理、权限管理和实用命令系统
+UnturnedServer 插件包
 """
-
-import os
-import sys
-import nonebot
+from nonebot import get_driver
 from nonebot.adapters.onebot.v11 import Adapter as OneBotV11Adapter
-from pathlib import Path
-
-# 确保当前目录在Python路径中
-current_dir = Path(__file__).parent.resolve()
-sys.path.append(str(current_dir))
-
-# 初始化NoneBot
-nonebot.init()
 
 # 注册OneBot V11适配器
-driver = nonebot.get_driver()
+driver = get_driver()
 driver.register_adapter(OneBotV11Adapter)
 
-# 加载当前目录下的所有插件（跨平台兼容的方式）
-nonebot.load_plugins(str(current_dir))
+# 加载当前目录下的所有插件
+from nonebot import load_plugins
+load_plugins(__file__.rsplit('\\', 1)[0])
 
-if __name__ == "__main__":
-    nonebot.run()
+__version__ = "0.1.0"
+__all__ = ["__version__"]
